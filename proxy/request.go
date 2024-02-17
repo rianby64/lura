@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"io"
 	"net/url"
+	"strings"
 )
 
 // Request contains the data to send to the backend
@@ -31,8 +32,13 @@ func (r *Request) GeneratePath(URLPattern string) {
 		key = append(key, "{{."...)
 		key = append(key, k...)
 		key = append(key, "}}"...)
+
+		v = strings.TrimLeft(v, "/")
 		buff = bytes.ReplaceAll(buff, key, []byte(v))
 	}
+
+	// buff = bytes.ReplaceAll(buff, []byte("//"), []byte("/")) // not sure if this is needed
+
 	r.Path = string(buff)
 }
 

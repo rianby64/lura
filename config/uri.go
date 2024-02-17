@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	endpointURLKeysPattern = regexp.MustCompile(`/\{([a-zA-Z\-_0-9]+)\}`)
+	endpointURLKeysPattern = regexp.MustCompile(`/\{([a-zA-Z\-_0-9]+)\}|/\*([a-zA-Z\-_0-9]+)`)
 	hostPattern            = regexp.MustCompile(`(https?://)?([a-zA-Z0-9\._\-]+)(:[0-9]{2,6})?/?`)
 )
 
@@ -100,7 +100,9 @@ func (u URI) GetEndpointPath(path string, params []string) string {
 	if u == ColonRouterPatternBuilder {
 		for p := range params {
 			parts := strings.Split(result, "?")
-			parts[0] = strings.ReplaceAll(parts[0], "{"+params[p]+"}", ":"+params[p])
+			if len(params[p]) > 0 && params[p][0] != asterisk {
+				parts[0] = strings.ReplaceAll(parts[0], "{"+params[p]+"}", ":"+params[p])
+			}
 			result = strings.Join(parts, "?")
 		}
 	}

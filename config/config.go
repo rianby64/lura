@@ -36,6 +36,9 @@ const (
 
 	// ConfigVersion is the current version of the config struct
 	ConfigVersion = 3
+
+	// internal constants
+	asterisk = '*'
 )
 
 // RoutingPattern to use during route conversion. By default, use the colon router pattern
@@ -359,9 +362,10 @@ func (e *ExtraConfig) Normalize() {
 var ExtraConfigAlias = map[string]string{}
 
 var (
-	simpleURLKeysPattern    = regexp.MustCompile(`\{([\w\-\.:/]+)\}`)
+	simpleURLKeysPattern    = regexp.MustCompile(`\{([\w\-\.:/]+)\}|\*([\w\-\.:]+)[?/]{0,1}`)
 	sequentialParamsPattern = regexp.MustCompile(`^(resp[\d]+_.+)?(JWT\.([\w\-\.:/]+))?$`)
-	invalidPattern          = `^[^/]|\*.|/__(debug|echo|health)(/.*)?$`
+	invalidPattern          = `^[^/]|/__(debug|echo|health)(/.*)?$`
+	wildcardPathPattern     = regexp.MustCompile(`([/?&]{0,}\*[^*?&\/{}]+)`)
 	errInvalidHost          = errors.New("invalid host")
 	errInvalidNoOpEncoding  = errors.New("can not use NoOp encoding with more than one backends connected to the same endpoint")
 	defaultPort             = 8080
@@ -534,6 +538,13 @@ func (*ServiceConfig) extractPlaceHoldersFromURLTemplate(subject string, pattern
 	matches := pattern.FindAllStringSubmatch(subject, -1)
 	keys := make([]string, len(matches))
 	for k, v := range matches {
+		portion := strings.TrimLeft(v[0], "/")[0]
+		if portion == asterisk {
+			keys[k] = string(asterisk) + v[2]
+
+			continue
+		}
+
 		keys[k] = v[1]
 	}
 	return keys
@@ -629,7 +640,11 @@ func (s *ServiceConfig) initBackendURLMappings(e, b int, inputParams map[string]
 	backend.URLKeys = []string{}
 	for _, output := range outputParams {
 		if !sequentialParamsPattern.MatchString(output) {
-			if _, ok := inputParams[output]; !ok {
+			_, okNoAsterisk := inputParams[output]
+			_, okAsAsterisk := inputParams[string(asterisk)+output]
+			ok := okNoAsterisk || okAsAsterisk
+
+			if !ok {
 				return &UndefinedOutputParamError{
 					Param:        output,
 					Endpoint:     s.Endpoints[e].Endpoint,
@@ -687,6 +702,22 @@ func (e *EndpointConfig) validate() error {
 	}
 	if matched {
 		return &EndpointPathError{Path: e.Endpoint, Method: e.Method}
+	}
+
+	matchedPathWildcards := wildcardPathPattern.FindAllString(e.Endpoint, 2)
+	if len(matchedPathWildcards) > 1 {
+		return &EndpointPathError{Path: e.Endpoint, Method: e.Method}
+	}
+
+	if len(matchedPathWildcards) == 1 {
+		if matchedPathWildcards[0][0] == '?' || matchedPathWildcards[0][0] == '&' {
+			return &EndpointPathError{Path: e.Endpoint, Method: e.Method}
+		}
+
+		lastPart := e.Endpoint[len(e.Endpoint)-len(matchedPathWildcards[0]):]
+		if matchedPathWildcards[0] != lastPart {
+			return &EndpointPathError{Path: e.Endpoint, Method: e.Method}
+		}
 	}
 
 	if len(e.Backend) == 0 {

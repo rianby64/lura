@@ -16,14 +16,29 @@ func TestRequestGeneratePath(t *testing.T) {
 			"Supu": "42",
 			"Tupu": "false",
 			"Foo":  "bar",
+			"Wild": "/level1/level2",
+			"Wrng": "level1/level2",
+			"Bad":  "",
+			"2Bad": "/",
+			"3Bad": "/",
+			"4Bad": "///bad4",
+			"Lvl2": "/level/2",
+			"Lvl3": "/lvl/3",
 		},
 	}
 
 	for i, testCase := range [][]string{
+		{"/base/{{.4Bad}}?b={{.Foo}}", "/base/bad4?b=bar"},
 		{"/a/{{.Supu}}", "/a/42"},
 		{"/a?b={{.Tupu}}", "/a?b=false"},
 		{"/a/{{.Supu}}/foo/{{.Foo}}", "/a/42/foo/bar"},
 		{"/a", "/a"},
+		{"/base/{{.Wild}}?b={{.Foo}}", "/base/level1/level2?b=bar"},
+		{"/base/{{.Wrng}}?b={{.Foo}}", "/base/level1/level2?b=bar"},
+		{"/base/{{.Bad}}?b={{.Foo}}", "/base/?b=bar"},
+		{"/base/{{.2Bad}}?b={{.Foo}}", "/base/?b=bar"},
+		{"/base/{{.2Bad}}/{{.3Bad}}?b={{.Foo}}", "/base//?b=bar"},
+		{"/base/{{.Lvl2}}/{{.Lvl3}}?b={{.Foo}}", "/base/level/2/lvl/3?b=bar"},
 	} {
 		r.GeneratePath(testCase[0])
 		if r.Path != testCase[1] {

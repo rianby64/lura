@@ -20,6 +20,10 @@ func TestConfig_rejectInvalidVersion(t *testing.T) {
 
 func TestConfig_rejectInvalidEndpoints(t *testing.T) {
 	samples := []string{
+		"/tupu?foo=bar&*wildcard",     // wildcard in the query
+		"/tupu?*wildcard",             // wildcard in the query
+		"/tupu/*unexpected/*wildcard", // two wildcards
+		"/tupu/*wildcard/unexpected",  // wildcard not at the end
 		"/__debug",
 		"/__debug/",
 		"/__debug/foo",
@@ -70,6 +74,7 @@ func TestConfig_initBackendURLMappings_ok(t *testing.T) {
 		"tupu_56":  nil,
 		"supu-5t6": nil,
 		"foo":      nil,
+		"*wild":    nil,
 	}
 
 	for i := range samples {
