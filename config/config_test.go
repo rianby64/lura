@@ -74,7 +74,6 @@ func TestConfig_initBackendURLMappings_ok(t *testing.T) {
 		"tupu_56":  nil,
 		"supu-5t6": nil,
 		"foo":      nil,
-		"*wild":    nil,
 	}
 
 	for i := range samples {
@@ -173,12 +172,22 @@ func TestConfig_init(t *testing.T) {
 		Backend:  []*Backend{&userBackend, &rssBackend, &postBackend},
 	}
 
+	wildBackend := Backend{
+		URLPattern: "/translated/{user}/{wildcard}",
+		Host:       []string{"https://wildcard.com"},
+	}
+
+	wildEndpoint := EndpointConfig{
+		Endpoint: "/users/{user}/*wildcard",
+		Backend:  []*Backend{&wildBackend},
+	}
+
 	subject := ServiceConfig{
 		Version:   ConfigVersion,
 		Timeout:   5 * time.Second,
 		CacheTTL:  30 * time.Minute,
 		Host:      []string{"http://127.0.0.1:8080"},
-		Endpoints: []*EndpointConfig{&supuEndpoint, &githubEndpoint, &userEndpoint},
+		Endpoints: []*EndpointConfig{&supuEndpoint, &githubEndpoint, &userEndpoint, &wildEndpoint},
 	}
 
 	if err := subject.Init(); err != nil {
@@ -189,10 +198,19 @@ func TestConfig_init(t *testing.T) {
 		t.Error("Default hosts not applied to the supu backend", supuBackend.Host)
 	}
 
+	if wildBackend.URLPattern != "/translated/{{.User}}/{{.Wildcard}}" {
+		t.Error("Error at transforming the wildcard in URLPattern")
+	}
+
+	if wildBackend.URLKeys[0] != "User" || wildBackend.URLKeys[1] != "Wildcard" {
+		t.Error("Error at transforming the wildcard in URLKeys")
+	}
+
 	for level, method := range map[string]string{
 		"userBackend":  userBackend.Method,
 		"postBackend":  postBackend.Method,
 		"userEndpoint": userEndpoint.Method,
+		"wildEndpoint": wildEndpoint.Method,
 	} {
 		if method != "GET" {
 			t.Errorf("Default method not applied at %s. Get: %s", level, method)
@@ -216,7 +234,7 @@ func TestConfig_init(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	if hash != "GdZTJtCn9ZHj3iBR1ZxmZL65HjbTCU8HhbDG8YWudAo=" {
+	if hash != "zIM4SfDwDob4wejN0klfe51lFq3mnpdGxyinBH2vJ3o=" {
 		t.Errorf("unexpected hash: %s", hash)
 	}
 }
