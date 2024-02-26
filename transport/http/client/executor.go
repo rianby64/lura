@@ -27,3 +27,13 @@ type HTTPClientFactory func(ctx context.Context) *http.Client
 func NewHTTPClient(_ context.Context) *http.Client { return defaultHTTPClient }
 
 var defaultHTTPClient = &http.Client{}
+
+func NewHTTPClientNoRedirect(_ context.Context) *http.Client {
+	return defaultHTTPClientNoRedirect
+}
+
+var defaultHTTPClientNoRedirect = &http.Client{
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
